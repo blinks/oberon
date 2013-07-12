@@ -1,10 +1,11 @@
-# oberon
+# Oberon
 
-FIXME: description
+Algorithmic musical composition.
 
 ## Installation
 
-Download from http://example.com/FIXME.
+    $ git clone https://github.com/blinks/oberon
+    $ cd oberon && lein deps
 
 ## Usage
 
@@ -24,12 +25,8 @@ FIXME: listing of options this app accepts.
 
 ...
 
-### Any Other Sections
-### That You Think
-### Might be Useful
-
 ## License
 
-Copyright © 2013 FIXME
+Copyright © 2013 Adam Blinkinsop
 
 Distributed under the Eclipse Public License, the same as Clojure.
