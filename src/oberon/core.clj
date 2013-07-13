@@ -6,17 +6,30 @@
   (:gen-class))
 
 (def reason (overtone/midi-out))
+(def tap (overtone/metronome 80))
 
-(defmulti play-note :c)
+(defmulti play-note :x)
+
+(defn play-note-on-channel
+  [ch {:keys [t d p v] :or {v 60}}]
+  (overtone/midi-note-on reason p v ch)
+  (overtone/apply-at
+    (tap (+ t d))
+    overtone/midi-note-off [reason p ch]))
 
 (defmethod play-note :default
-  [{p :p v :v :or {v 60} :as note}]
+  [{p :p :as note}]
   (if (not (nil? p))
-    (overtone/midi-note-on reason p v)))
+    (play-note-on-channel 0 note)))
+
+(defmethod play-note :bass
+  [{p :p :as note}]
+  (if (not (nil? p))
+    (play-note-on-channel 0 note)))
 
 (defn conduct
   ([es]
-   (let [m (overtone/metronome 80)
+   (let [m tap
          es' (timeshift (m) es)
          t (:t (first es'))]
      (overtone/apply-at (m t) conduct [m es'])))
@@ -140,7 +153,7 @@
         pitch (rand-nth *ps)
         [r & rs] (concat+ rx)
         duration r
-        velocity 90
+        velocity 80
         init {:d duration :p pitch :v velocity :x pt}
         ; For the rest of this melody, use the entire scale.
         scale (repeat (apply sorted-set (take hh (harmonic-order h))))]
@@ -155,10 +168,19 @@
   [root mode rhythm melody harmony]
   (let [ch #(compose-harmony % root mode rhythm melody harmony)
         cm #(compose-melody %1 root mode %2 rhythm melody harmony)]
-  (-> (relative->absolute (cm :bass 3))
-      (with (relative->absolute (cm :tenor 4)))
-      (with (relative->absolute (cm :alto 5)))
-      (with (relative->absolute (cm :soprano 6))))))
+  (-> (relative->absolute (cm :bass 2))
+      (with (relative->absolute (cm :tenor 3)))
+      (with (relative->absolute (cm :alto 4)))
+      (with (relative->absolute (cm :soprano 5))))))
+
+(defn fantasia
+  ([root mode rhythm melody harmony]
+   (fantasia 0 root mode rhythm melody harmony))
+  ([t root mode rhythm melody harmony]
+   (let [mt (motif->theme root mode rhythm melody harmony)]
+     (lazy-cat (timeshift t mt)
+               (fantasia (+ t (seq+ rhythm))
+                         root mode rhythm melody harmony)))))
 
 (defn -main
   "Compose and perform a fantasia."
@@ -168,5 +190,6 @@
         rx (concat r' r')
         mx (melodic-motif)
         hx (harmonic-motif)
-        mt (motif->theme :C :minor rx mx hx)]
+        mt (fantasia :C :major rx mx hx)]
     (->> mt conduct)))
+;(overtone/stop)
