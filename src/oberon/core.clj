@@ -6,7 +6,7 @@
   (:gen-class))
 
 (def reason (overtone/midi-out))
-(def tap (overtone/metronome 80))
+(def tap (overtone/metronome 100))
 
 (defmulti play-note :x)
 
@@ -136,7 +136,7 @@
                 0  [p']
                 -1 (reverse (take-while #(< % p') *ps))
                 +1 (drop-while #(<= % p') *ps)))
-         pitch (binomial-nth 1/4 ps)
+         pitch (binomial-nth 1/4 (cons nil ps))
          duration (seq+ r)
          velocity 70
          e {:d duration :p pitch :v velocity :x pt}]
@@ -186,10 +186,12 @@
   "Compose and perform a fantasia."
   [& args]
   (alter-var-root #'*read-eval* (constantly false))
-  (let [r' (rhythmic-motif 8)
+  (let [root (rand-nth (vals overtone/REVERSE-NOTES))
+        mode (rand-nth [:major :minor])
+        r' (rhythmic-motif 8)
         rx (concat r' r')
         mx (melodic-motif)
         hx (harmonic-motif)
-        mt (fantasia :C :major rx mx hx)]
+        mt (fantasia root mode rx mx hx)]
     (->> mt conduct)))
 ;(overtone/stop)
