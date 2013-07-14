@@ -116,7 +116,8 @@
 (defn rhythmic-motif
   "Nested durations."
   ([]
-   (let [r (rhythmic-motif 8 (cons 2 (repeatedly 3 #(rand-nth [2 3]))))]
+   (let [r (rhythmic-motif
+             8 (cons 2 (conj 2 (repeatedly 2 #(rand-nth [2 3])))))]
      (concat r r)))
   ([duration [r & rs]]
    (let [d (/ duration r)]
