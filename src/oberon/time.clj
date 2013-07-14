@@ -45,12 +45,12 @@
 
 (defn duration
   [notes]
-  (let [{:keys {t d}} (last notes)]
+  (let [{:keys [t d]} (last notes)]
     (+ t d)))
 
 (defn then
   ([limit later earlier]
    (->> earlier
-       (with (timeshift limit later))))
+        (with (timeshift limit later))))
   ([later earlier]
    (then (duration earlier) later earlier)))

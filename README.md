@@ -9,21 +9,27 @@ Algorithmic musical composition.
 
 ## Usage
 
-FIXME: explanation
+Oberon expects a MIDI out port to be available for sending messages.  I
+generally use MIDI Patchbay (free for OSX) to hook it up to Reason.  If
+you have an external poly synth available, that'd work well too.
 
     $ java -jar oberon-0.1.0-standalone.jar [args]
 
 ## Options
 
-FIXME: listing of options this app accepts.
+None yet.
 
 ## Examples
 
-...
+* [Opus 1](http://soundcloud.com/hackerblinks/oberon-opus-1)
+* [Opus 2](http://soundcloud.com/hackerblinks/oberon-opus-2)
 
 ### Bugs
 
-...
+* Notes sometimes are too short due to rhythmic strangeness.
+* Key modulation sometimes overreaches.
+* The piece doesn't generally have enough of an arc.
+* The code is a mess.
 
 ## License
 

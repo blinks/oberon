@@ -12,20 +12,36 @@
 
 (defn play-note-on-channel
   [ch {:keys [t d p v] :or {v 60}}]
-  (overtone/midi-note-on reason p v ch)
-  (overtone/apply-at
-    (tap (+ t d))
-    overtone/midi-note-off [reason p ch]))
+  (let [dt (rand-int 50)]
+    (overtone/apply-at
+      (+ (tap t) dt)
+      overtone/midi-note-on [reason p v ch])
+    (overtone/apply-at
+      (+ (tap (+ t d)) dt)
+      overtone/midi-note-off [reason p ch])))
 
 (defmethod play-note :default
   [{p :p :as note}]
   (if (not (nil? p))
     (play-note-on-channel 0 note)))
 
+(defmethod play-note :alto
+  [{p :p :as note}]
+  (if (not (nil? p))
+    (let [n (assoc note :v (* 4/5 (:v note)))]
+      (play-note-on-channel 0 note))))
+
+(defmethod play-note :tenor
+  [{p :p :as note}]
+  (if (not (nil? p))
+    (let [n (assoc note :v (* 3/4 (:v note)))]
+      (play-note-on-channel 0 note))))
+
 (defmethod play-note :bass
   [{p :p :as note}]
   (if (not (nil? p))
-    (play-note-on-channel 0 note)))
+    (let [n (assoc note :v (* 2/3 (:v note)))]
+      (play-note-on-channel 0 note))))
 
 (defn conduct
   ([es]
@@ -103,7 +119,9 @@
 
 (defn rhythmic-motif
   "Nested durations."
-  ([duration] (rhythmic-motif duration (repeatedly 4 #(rand-nth [2 3]))))
+  ([]
+   (let [r (rhythmic-motif 8 (repeatedly 4 #(rand-nth [2 3])))]
+     (concat r r)))
   ([duration [r & rs]]
    (let [d (/ duration r)]
      (if (nil? rs) duration
@@ -130,22 +148,23 @@
   ([part root mode rhythm melody harmony]
    (compose-harmony part root mode nil rhythm melody harmony))
   ([pt rt md p' [r & rs] [m & ms] [h & hs]]
+   ; TODO: Add a flourish by subdividing duration?
    (let [*ps (choices pt rt md h)
          ps (if (nil? p') (shuffle *ps)
               (case m
                 0  [p']
                 -1 (reverse (take-while #(< % p') *ps))
                 +1 (drop-while #(<= % p') *ps)))
-         pitch (binomial-nth 1/4 (cons nil ps))
+         pitch (binomial-nth 1/3 (cons nil ps))
          duration (seq+ r)
-         velocity 70
+         velocity (rand-nth (range 50 80))
          e {:d duration :p pitch :v velocity :x pt}]
      (cons e (if rs (lazy-seq
                       (compose-harmony pt rt md pitch rs ms hs)))))))
 
 (defn harmonic-order
   [hx]
-  (map #(+ (nth hx 1) %) [0 4 2 6 3 1 5]))
+  (map #(+ (nth hx 1) %) [0 4 2 3 5 1 6]))
 
 (defn compose-cell
   [pt rt md hh rx mx h]
@@ -153,8 +172,11 @@
         pitch (rand-nth *ps)
         [r & rs] (concat+ rx)
         duration r
-        velocity 80
-        init {:d duration :p pitch :v velocity :x pt}
+        velocity (rand-nth [0 40 60 70 75 80])
+        init {:d duration
+              :p (if (zero? velocity) nil pitch)
+              :v velocity
+              :x pt}
         ; For the rest of this melody, use the entire scale.
         scale (repeat (apply sorted-set (take hh (harmonic-order h))))]
     (cons init (lazy-seq (compose-harmony
@@ -166,32 +188,34 @@
 
 (defn motif->theme
   [root mode rhythm melody harmony]
-  (let [ch #(compose-harmony % root mode rhythm melody harmony)
-        cm #(compose-melody %1 root mode %2 rhythm melody harmony)]
+  (let [cm #(compose-melody %1 root mode %2 rhythm melody harmony)]
   (-> (relative->absolute (cm :bass 2))
       (with (relative->absolute (cm :tenor 3)))
       (with (relative->absolute (cm :alto 4)))
       (with (relative->absolute (cm :soprano 5))))))
 
-(defn fantasia
-  ([root mode rhythm melody harmony]
-   (fantasia 0 root mode rhythm melody harmony))
-  ([t root mode rhythm melody harmony]
-   (let [mt (motif->theme root mode rhythm melody harmony)]
-     (lazy-cat (timeshift t mt)
-               (fantasia (+ t (seq+ rhythm))
-                         root mode rhythm melody harmony)))))
+(defn sonata
+  [depth rt md rx mx hx]
+  (if (<= depth 0) []
+    (let [shift (count rx)
+          hx' (reverse (take shift hx))
+          t (map overtone/nth-interval (nth hx (- shift 1)))
+          {tr :root tm :chord-type} (overtone/find-chord t)]
+      (->> (motif->theme rt md rx mx hx)
+           (then (motif->theme rt md rx mx hx))
+           (then (sonata (dec depth) tr tm rx mx hx))
+           (then (sonata (dec depth) tr tm rx mx hx))
+           (then (motif->theme rt md rx mx hx'))
+           (then (motif->theme rt md rx mx hx'))))))
 
 (defn -main
-  "Compose and perform a fantasia."
+  "Compose and perform a sonata."
   [& args]
   (alter-var-root #'*read-eval* (constantly false))
   (let [root (rand-nth (vals overtone/REVERSE-NOTES))
         mode (rand-nth [:major :minor])
-        r' (rhythmic-motif 8)
-        rx (concat r' r')
+        rx (rhythmic-motif)
         mx (melodic-motif)
         hx (harmonic-motif)
-        mt (fantasia root mode rx mx hx)]
-    (->> mt conduct)))
-;(overtone/stop)
+        piece (sonata 4 root mode rx mx hx)]
+    (->> piece conduct)))
