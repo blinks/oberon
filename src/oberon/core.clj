@@ -17,7 +17,10 @@
     (fn []
       (overtone/midi-note-on reason p v ch)
       (overtone/after-delay
-        (+ (overtone/beat-ms d (tap)) (rand-int 50))
+        (+ (overtone/beat-ms
+             (max d 1/4)  ; 1/16th note minimum length.
+             (overtone/metro-bpm tap))
+           (rand-int 50))
         (fn []
           (overtone/midi-note-off reason p ch))))))
 
