@@ -2,10 +2,13 @@
   (:use
     [oberon.time])
   (:require
-    [overtone.core :as overtone])
+    [overtone.core :as overtone]
+    [overtone.studio.midi :as midi])
   (:gen-class))
 
-(def reason (overtone/midi-out))
+; TODO: Make this a command-line parameter,
+; with the option to use scsynth.
+(def reason (midi/midi-find-connected-receiver "VInput"))
 (def tap (overtone/metronome 100))
 
 (defmulti play-note :x)
@@ -15,12 +18,12 @@
   (overtone/after-delay
     (rand-int 50)
     (fn []
-      (overtone/midi-note-on reason p v ch)
+      (midi/midi-note-on reason p v ch)
       (overtone/after-delay  ; use a minimum note length
         (+ (max 200 (overtone/beat-ms d (overtone/metro-bpm tap)))
            (rand-int 50))
         (fn []
-          (overtone/midi-note-off reason p ch))))))
+          (midi/midi-note-off reason p ch))))))
 
 (defmethod play-note :default
   [{p :p :as note}]
@@ -116,8 +119,7 @@
 (defn rhythmic-motif
   "Nested durations."
   ([]
-   (let [r (rhythmic-motif
-             8 (cons 2 (conj 2 (repeatedly 2 #(rand-nth [2 3])))))]
+   (let [r (rhythmic-motif 8 [2 (rand-nth [2 3]) (rand-nth [2 3]) 2])]
      (concat r r)))
   ([duration [r & rs]]
    (let [d (/ duration r)]
