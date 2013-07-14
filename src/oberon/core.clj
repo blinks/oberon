@@ -12,13 +12,14 @@
 
 (defn play-note-on-channel
   [ch {:keys [t d p v] :or {v 60}}]
-  (let [dt (rand-int 50)]
-    (overtone/apply-at
-      (+ (tap t) dt)
-      overtone/midi-note-on [reason p v ch])
-    (overtone/apply-at
-      (+ (tap (+ t d)) dt)
-      overtone/midi-note-off [reason p ch])))
+  (overtone/after-delay
+    (rand-int 50)
+    (fn []
+      (overtone/midi-note-on reason p v ch)
+      (overtone/after-delay
+        (+ (overtone/beat-ms d (tap)) (rand-int 50))
+        (fn []
+          (overtone/midi-note-off reason p ch))))))
 
 (defmethod play-note :default
   [{p :p :as note}]
@@ -29,19 +30,19 @@
   [{p :p :as note}]
   (if (not (nil? p))
     (let [n (assoc note :v (* 4/5 (:v note)))]
-      (play-note-on-channel 0 note))))
+      (play-note-on-channel 1 note))))
 
 (defmethod play-note :tenor
   [{p :p :as note}]
   (if (not (nil? p))
     (let [n (assoc note :v (* 3/4 (:v note)))]
-      (play-note-on-channel 0 note))))
+      (play-note-on-channel 2 note))))
 
 (defmethod play-note :bass
   [{p :p :as note}]
   (if (not (nil? p))
     (let [n (assoc note :v (* 2/3 (:v note)))]
-      (play-note-on-channel 0 note))))
+      (play-note-on-channel 3 note))))
 
 (defn conduct
   ([es]
@@ -199,7 +200,7 @@
   (if (<= depth 0) []
     (let [shift (count rx)
           hx' (reverse (take shift hx))
-          t (map overtone/nth-interval (nth hx (- shift 1)))
+          t (base-chord rt md (nth hx (- shift 1)))
           {tr :root tm :chord-type} (overtone/find-chord t)]
       (->> (motif->theme rt md rx mx hx)
            (then (motif->theme rt md rx mx hx))
