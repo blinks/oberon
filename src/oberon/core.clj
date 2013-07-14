@@ -16,10 +16,8 @@
     (rand-int 50)
     (fn []
       (overtone/midi-note-on reason p v ch)
-      (overtone/after-delay
-        (+ (overtone/beat-ms
-             (max d 1/4)  ; 1/16th note minimum length.
-             (overtone/metro-bpm tap))
+      (overtone/after-delay  ; use a minimum note length
+        (+ (max 200 (overtone/beat-ms d (overtone/metro-bpm tap)))
            (rand-int 50))
         (fn []
           (overtone/midi-note-off reason p ch))))))
@@ -76,12 +74,6 @@
         i (clojure.set/intersection ma mb)]
     (count i)))
 
-(defn not-diminished
-  [chord]
-  (let [cn (map overtone/nth-interval chord)
-        ci (overtone/find-chord cn)]
-    (not= :diminished (:chord-type ci))))
-
 (def vocal-range
   {:soprano [:C4 :A5]
    :alto [:G3 :F5]
@@ -124,7 +116,7 @@
 (defn rhythmic-motif
   "Nested durations."
   ([]
-   (let [r (rhythmic-motif 8 (repeatedly 4 #(rand-nth [2 3])))]
+   (let [r (rhythmic-motif 8 (cons 2 (repeatedly 3 #(rand-nth [2 3]))))]
      (concat r r)))
   ([duration [r & rs]]
    (let [d (/ duration r)]
@@ -141,9 +133,8 @@
   "Generate infinite chord progressions, avoiding diminished chords."
   ([] (harmonic-motif [0 2 4]))
   ([seed-chord]
-   (let [opts (for [i (range 8)] [i (+ i 2) (+ i 4)])
-         ndim (filter not-diminished opts)
-         near (group-by (partial similar-mod? 7 seed-chord) ndim)
+   (let [opts (for [i [0 2 3 4 5]] [i (+ i 2) (+ i 4)])
+         near (group-by (partial similar-mod? 7 seed-chord) opts)
          candidates (apply concat (for [i [1 2]] (near i)))
          chosen (binomial-nth 1/3 candidates)]
      (cons seed-chord (lazy-seq (harmonic-motif chosen))))))
@@ -156,10 +147,10 @@
    (let [*ps (choices pt rt md h)
          ps (if (nil? p') (shuffle *ps)
               (case m
-                0  [p']
+                0  [p' nil]
                 -1 (reverse (take-while #(< % p') *ps))
                 +1 (drop-while #(<= % p') *ps)))
-         pitch (binomial-nth 1/3 (cons nil ps))
+         pitch (binomial-nth 1/3 (conj ps nil))
          duration (seq+ r)
          velocity (rand-nth (range 50 80))
          e {:d duration :p pitch :v velocity :x pt}]
@@ -176,7 +167,7 @@
         pitch (rand-nth *ps)
         [r & rs] (concat+ rx)
         duration r
-        velocity (rand-nth [0 40 60 70 75 80])
+        velocity (rand-nth [0 0 60 70 75 80])
         init {:d duration
               :p (if (zero? velocity) nil pitch)
               :v velocity
@@ -202,15 +193,30 @@
   [depth rt md rx mx hx]
   (if (<= depth 0) []
     (let [shift (count rx)
+          progression (take shift hx)
           hx' (reverse (take shift hx))
-          t (base-chord rt md (nth hx (- shift 1)))
+          t (base-chord rt md (nth hx (dec shift)))
           {tr :root tm :chord-type} (overtone/find-chord t)]
+      ;(printf "Progression: %s\n"
+      ;        (apply str (map #(let [base (base-chord rt md %)
+      ;                               {:keys [root chord-type]}
+      ;                               (overtone/find-chord base)]
+      ;                           (str (name root) (name chord-type)))
+      ;                        (take shift hx))))
+      ;(printf "Modulate to %s %s\n" tr tm)
       (->> (motif->theme rt md rx mx hx)
            (then (motif->theme rt md rx mx hx))
            (then (sonata (dec depth) tr tm rx mx hx))
-           (then (sonata (dec depth) tr tm rx mx hx))
            (then (motif->theme rt md rx mx hx'))
+           (then (motif->theme rt md rx mx hx))
+           (then (sonata (dec depth) tr tm rx mx hx))
            (then (motif->theme rt md rx mx hx'))))))
+
+(defn measure
+  [hx]
+  (case (count (first hx))
+    2 (case (count (ffirst hx)) 2 "4/4" 3 "6/8")
+    3 "3/4"))
 
 (defn -main
   "Compose and perform a sonata."
@@ -221,5 +227,6 @@
         rx (rhythmic-motif)
         mx (melodic-motif)
         hx (harmonic-motif)
-        piece (sonata 4 root mode rx mx hx)]
+        piece (sonata 5 root mode rx mx hx)]
+    (printf "Sonata in %s %s; %s\n" root mode (measure hx))
     (->> piece conduct)))
