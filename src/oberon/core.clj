@@ -2,13 +2,12 @@
   (:use
     [oberon.time])
   (:require
-    [overtone.core :as overtone]
-    [overtone.studio.midi :as midi])
+    [overtone.core :as overtone])
   (:gen-class))
 
 ; TODO: Make this a command-line parameter,
 ; with the option to use scsynth.
-(def reason (midi/midi-find-connected-receiver "VInput"))
+(def reason (overtone/midi-find-connected-receiver "VInput"))
 (def tap (overtone/metronome 100))
 
 (defmulti play-note :x)
@@ -18,12 +17,12 @@
   (overtone/after-delay
     (rand-int 50)
     (fn []
-      (midi/midi-note-on reason p v ch)
+      (overtone/midi-note-on reason p v ch)
       (overtone/after-delay  ; use a minimum note length
         (+ (max 200 (overtone/beat-ms d (overtone/metro-bpm tap)))
            (rand-int 50))
         (fn []
-          (midi/midi-note-off reason p ch))))))
+          (overtone/midi-note-off reason p ch))))))
 
 (defmethod play-note :default
   [{p :p :as note}]
@@ -230,6 +229,6 @@
         rx (rhythmic-motif)
         mx (melodic-motif)
         hx (harmonic-motif)
-        piece (sonata 5 root mode rx mx hx)]
+        piece (sonata 4 root mode rx mx hx)]
     (printf "Sonata in %s %s; %s\n" root mode (measure hx))
     (->> piece conduct)))
